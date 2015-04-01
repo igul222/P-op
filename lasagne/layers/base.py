@@ -338,6 +338,91 @@ class MultipleInputsLayer(Layer):
         """
         raise NotImplementedError
 
+class MultipleSplitInputsLayer(Layer):
+    """
+    This class is just a re-writing of Lasagne's multiple inputs layer that allows you to send a list of inputs into the layer and have them be split up accordingly
+
+    TODO: clean up code/docs and possibly add support for variable-lenght splitting, i.e incomings will take #inputs that it takes. this should be ez to do and nice.
+    TODO: move to lasagne fork for readability & standardization
+    """
+    def __init__(self, incomings, name=None):
+        """
+        Instantiates the layer.
+        :parameters:
+            - incomings : a list of :class:`Layer` instances or tuples
+                the layers feeding into this layer, or expected input shapes
+            - name : a string or None
+                an optional name to attach to this layer
+        """
+        self.input_shapes = [incoming if isinstance(incoming, tuple)
+                             else incoming.get_output_shape()
+                             for incoming in incomings]
+        self.input_layers = [None if isinstance(incoming, tuple)
+                             else incoming
+                             for incoming in incomings]
+        self.name = name
+
+    def get_output_shape(self):
+        return self.get_output_shape_for(self.input_shapes)
+
+    def get_output(self, inputs=None, **kwargs):
+        if isinstance(inputs, dict) and (self in inputs):
+            # this layer is mapped to an expression or numpy array
+            return utils.as_theano_expression(inputs[self])
+        elif any(input_layer is None for input_layer in self.input_layers):
+            raise RuntimeError("get_output() called on a free-floating layer; "
+                               "there isn't anything to get its inputs from. "
+                               "Did you mean get_output_for()?")
+        # In all other cases, just pass the network input on to the next layers
+        else:
+            layer_inputs = [input_layer.get_output(input, **kwargs) for
+                            input_layer,input in zip(self.input_layers, inputs)]
+            return self.get_output_for(layer_inputs, **kwargs)
+
+    def get_output_shape_for(self, input_shapes):
+        """
+        Computes the output shape of this layer, given a list of input shapes.
+        :parameters:
+            - input_shape : list of tuple
+                a list of tuples, with each tuple representing the shape of
+                one of the inputs (in the correct order). These tuples should
+                have as many elements as there are input dimensions, and the
+                elements should be integers or `None`.
+        :returns:
+            - output : tuple
+                a tuple representing the shape of the output of this layer.
+                The tuple has as many elements as there are output dimensions,
+                and the elements are all either integers or `None`.
+        :note:
+            This method must be overridden when implementing a new
+            :class:`Layer` class with multiple inputs. By default it raises
+            `NotImplementedError`.
+        """
+        raise NotImplementedError
+
+    def get_output_for(self, inputs, **kwargs):
+        """
+        Propagates the given inputs through this layer (and only this layer).
+        :parameters:
+            - inputs : list of Theano expressions
+                The Theano expressions to propagate through this layer
+        :returns:
+            - output : Theano expressions
+                the output of this layer given the inputs to this layer
+        :note:
+            This is called by the base :class:`MultipleInputsLayer`
+            implementation to propagate data through a network in
+            `get_output()`. While `get_output()` asks the underlying layers
+            for input and thus returns an expression for a layer's output in
+            terms of the network's input, `get_output_for()` just performs a
+            single step and returns an expression for a layer's output in
+            terms of that layer's input.
+            This method should be overridden when implementing a new
+            :class:`Layer` class with multiple inputs. By default it raises
+            `NotImplementedError`.
+        """
+        raise NotImplementedError
+
 """
 todo: basecomputationlayer? needed?
 """
