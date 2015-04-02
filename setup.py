@@ -29,7 +29,7 @@ docs_require = [
     ]
 
 setup(
-    name="Lasagne",
+    name="Pop",
     version=version,
     description="neural network tools for Theano",
     long_description="\n\n".join([README, CHANGES]),
@@ -39,9 +39,9 @@ setup(
         "Programming Language :: Python :: 3.4",
         ],
     keywords="",
-    author="Sander Dieleman",
-    author_email="sanderdieleman@gmail.com",
-    url="https://github.com/benanne/lasagne",
+    author="Ankit Kumar",
+    author_email="kitofans@gmail.com",
+    url="https://github.com/kitofans/P-op",
     license="MIT",
     packages=find_packages(),
     include_package_data=True,
