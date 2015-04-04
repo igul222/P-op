@@ -1,7 +1,7 @@
 import numpy as np
 
 import theano
-
+import cPickle as pkl
 from .. import utils
 
 
@@ -37,11 +37,11 @@ class Pop(object):
         self.name=name
         self.Pops = [self]
 
-    def get_output(self, input, **kwargs):
+    def get_output(self, *args, **kwargs):
         """
         This currently just exists to fit Lasagne's objectives/etc. TODO: keep or remove. why "symbolic call"?
         """
-        return self.symbolic_call(input, **kwargs)
+        return self.symbolic_call(*args, **kwargs)
 
     def chain_pops(self, *pops, **kwargs):
         """
@@ -79,15 +79,15 @@ class Pop(object):
         # todo: have length of args checks somewhere
         # todo: pass **kwargs somehow
         # possible todo: maybe somehow allow giving args by name, i.e pop1arg=__, pop2arg=___.r
-        def new_symbolic_call(*args, **kwargs):
+        def new_symbolic_call(*args, **ckwargs):
             outputs = []
             curr_offset = 0
             for pop in pops:
-                out = pop.symbolic_call(*(args[curr_offset:curr_offset+pop.num_input]))
+                out = pop.symbolic_call(*(args[curr_offset:curr_offset+pop.num_input]), **ckwargs)
                 outputs += utils.make_list(out)
                 curr_offset += pop.num_input
             # now outputs should have enough to call this pop's symbolic_call
-            final_out = self.symbolic_call(*outputs)
+            final_out = self.symbolic_call(*outputs, **ckwargs)
             return final_out
 
         new_Pop.symbolic_call = new_symbolic_call
@@ -190,7 +190,27 @@ class Pop(object):
                                "a numpy array, a Theano shared variable, or a "
                                "callable")
 
-    def symbolic_call(self, *args):
+
+    def serialize(self, filename):
+        """
+        Serializes this Pop into filename
+
+        Can't just pickle the Pop because of the new_symbolic_call stuff
+        """
+        params = [param.get_value() for param in self.get_all_params()]
+        pkl.dump(params, open(filename,'w'))
+
+    def load(self, filename):
+        """
+        loads the parameters from filename
+        """
+        params = self.get_all_params()
+        loaded = pkl.load(open(filename))
+        for param,lparam in zip(params, loaded):
+            param.set_value(lparam)
+
+
+    def symbolic_call(self, *args, **kwargs):
         """
         Represents the function of this Pop. Accepts and returns a symbolic theano variable.
 

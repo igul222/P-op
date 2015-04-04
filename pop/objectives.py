@@ -50,7 +50,7 @@ class Objective(object):
                              'or None, not {0}'.format(aggregation))
         self.aggregation = aggregation
 
-    def get_loss(self, input=None, target=None, aggregation=None, **kwargs):
+    def get_loss(self, *args, **kwargs):
         """
         Get loss scalar expression
 
@@ -68,7 +68,15 @@ class Objective(object):
         :returns:
             - output : loss expressions
         """
-        network_output = self.input_layer.get_output(input, **kwargs)
+        output = kwargs.get('output', None)
+        if output is None:
+            network_output = self.input_layer.get_output(*args, **kwargs)
+        else:
+            network_output = self.input_layer.get_output(*args, **kwargs)[output]
+
+        print network_output.ndim
+        target = kwargs.get('target',None)
+        aggregation = kwargs.get('aggregation','mean')
         if target is None:
             target = self.target_var
         if aggregation not in self._valid_aggregation:

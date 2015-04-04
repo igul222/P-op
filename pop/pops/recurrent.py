@@ -1,6 +1,6 @@
 import theano
 import theano.tensor as T
-
+import functools
 from .. import nonlinearities
 from .. import init
 from .. import utils
@@ -78,7 +78,7 @@ class BaseRecurrentPop(Pop):
         outputs_info = self.get_outputs_info(*args)
 
      
-        outputs = utils.make_list(theano.scan(self.step_fn, sequences=seqs, non_sequences=non_seqs,
+        outputs = utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
                              go_backwards=self.backwards,
                              outputs_info=outputs_info,
                              truncate_gradient=self.gradient_steps)[0])
@@ -130,7 +130,7 @@ class BaseRecurrentPop(Pop):
         """
         raise NotImplementedError
 
-    def step_fn(self, *args):
+    def step_fn(self, *args, **kwargs):
         """
         returns the step function. Note that we are here assuming that you will figure out the *args ordering.
         """
@@ -188,7 +188,7 @@ class GatedRecurrentPop(BaseRecurrentPop):
         return None
 
 
-    def step_fn(self, *args):
+    def step_fn(self, *args, **kwargs):
         """
         implements the forward pass of **one timestep** of a GRU recurrent net. This does not implement anything more than one timestep because the BaseRecurrent architecture deals with the steps
 

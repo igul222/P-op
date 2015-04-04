@@ -59,7 +59,8 @@ class Sparse(Initializer):
 
 
 class Uniform(Initializer):
-    def __init__(self, range=None):
+    def __init__(self, range=.1):
+        """ pass in range=None to use the Glorot et al. approach"""
         self.range = range
 
     def sample(self, shape):

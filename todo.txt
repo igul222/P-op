@@ -1,0 +1,1 @@
+* have a dict mapping Pop name -> pop for the pops in a pop, so that for i.e language model, we can find the embedding pop to dump
