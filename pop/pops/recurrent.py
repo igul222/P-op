@@ -34,12 +34,13 @@ class BaseRecurrentPop(Pop):
     """
     def __init__(self, num_input, num_output, hidden_size,
                  h0=init.Constant(0.), backwards=False,
-                 learn_init=False, gradient_steps=-1, **kwargs):
+                 learn_init=False, gradient_steps=-1, bidirectional=False, **kwargs):
         super(BaseRecurrentPop, self).__init__(num_input,num_output,**kwargs)
         self.num_output=num_output
         self.learn_init = learn_init
         self.backwards = backwards
         self.gradient_steps = gradient_steps
+        self.bidirectional = bidirectional
         self.hidden_size=hidden_size
         # Initialize hidden state
         self.h0 = self.create_param(h0, (self.hidden_size,))
@@ -77,17 +78,37 @@ class BaseRecurrentPop(Pop):
         non_seqs = self.get_non_seqs(*args)
         outputs_info = self.get_outputs_info(*args)
 
-     
-        outputs = utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
-                             go_backwards=self.backwards,
+        if self.bidirectional:
+            outputs_forward=utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
+                             go_backwards=False,
+                             outputs_info=outputs_info,
+                             truncate_gradient=self.gradient_steps)[0])
+            outputs_backward=utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
+                             go_backwards=True,
                              outputs_info=outputs_info,
                              truncate_gradient=self.gradient_steps)[0])
 
-        # Now, dimshuffle back to (n_batch, n_time_steps, n_features))
-        outputs = [output.dimshuffle(1,0,2) for output in outputs]
+            # dimshuffle back
+            outputs_forward = [output.dimshuffle(1,0,2) for output in outputs_forward]
+            outputs_backward = [output.dimshuffle(1,0,2) for output in outputs_backward]
 
-        if self.backwards:
-            outputs = [output[:, ::-1, :] for output in outputs]
+            # flip backwards runs
+            outputs_backward = [output[:,::-1,:] for output in outputs_backward]
+
+            # and concatenate
+            outputs = [T.concatenate([forward,backward],axis=2) for forward,backward in zip(outputs_forward,outputs_backward)]
+
+        else:
+            outputs = utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
+                                 go_backwards=self.backwards,
+                                 outputs_info=outputs_info,
+                                 truncate_gradient=self.gradient_steps)[0])
+
+            # Now, dimshuffle back to (n_batch, n_time_steps, n_features))
+            outputs = [output.dimshuffle(1,0,2) for output in outputs]
+
+            if self.backwards:
+                outputs = [output[:, ::-1, :] for output in outputs]
 
         if self.num_output==1:
             return outputs[0]

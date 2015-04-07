@@ -103,7 +103,7 @@ class Pop(object):
     def __call__(self, *args):
         return self.symbolic_call(*args)
 
-    def get_all_params(self, ignore=[]):
+    def get_all_params(self, ignore=[], include=[]):
         """
         Gets all the params of this entire Pop, ignoring the Pops listed in ignore.
 
@@ -114,7 +114,10 @@ class Pop(object):
         TODO: is 'ignore' better or is 'include' better?
         TODO: should we deal with biases seperately, maybe?
         """
-        return utils.unique(sum([pop.get_params() for pop in self.Pops if pop not in ignore], []))
+        if len(include) > 0:
+            return utils.unique(sum([pop.get_params() for pop in include], []))
+        else:
+            return utils.unique(sum([pop.get_params() for pop in self.Pops if pop not in ignore], []))
 
     def get_params(self):
         """
@@ -207,7 +210,7 @@ class Pop(object):
         params = self.get_all_params()
         loaded = pkl.load(open(filename))
         for param,lparam in zip(params, loaded):
-            param.set_value(lparam)
+            param.set_value(lparam.astype(theano.config.floatX))
 
 
     def symbolic_call(self, *args, **kwargs):
