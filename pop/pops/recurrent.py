@@ -74,9 +74,9 @@ class BaseRecurrentPop(Pop):
         '''
         # but scan requires the iterable dimension to be first
         # So, we need to dimshuffle to (n_time_steps, n_batch, n_features)
-        seqs = self.get_seqs(*args)
-        non_seqs = self.get_non_seqs(*args)
-        outputs_info = self.get_outputs_info(*args)
+        seqs = self.get_seqs(*args, **kwargs)
+        non_seqs = self.get_non_seqs(*args, **kwargs)
+        outputs_info = self.get_outputs_info(*args, **kwargs)
 
         if self.bidirectional:
             outputs_forward=utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
@@ -115,7 +115,7 @@ class BaseRecurrentPop(Pop):
         else:
             return outputs
 
-    def get_outputs_info(self, *args):
+    def get_outputs_info(self, *args, **kwargs):
         """
         Returns values to be passed in to "outputs_info" of the scan function
 
@@ -127,7 +127,7 @@ class BaseRecurrentPop(Pop):
         h0alloc = T.alloc(self.h0, X.shape[0], self.hidden_size)
         return [h0alloc] + self.get_extra_outputs_info(*args[1:])
 
-    def get_extra_outputs_info(self, *args):
+    def get_extra_outputs_info(self, *args, **kwargs):
         """
         args no longer includes X.
 
@@ -135,7 +135,7 @@ class BaseRecurrentPop(Pop):
         """
         return [None for i in range(len(args))]
 
-    def get_seqs(self, *args):
+    def get_seqs(self, *args, **kwargs):
         """
         Returns the values to be passed in to "sequences" of the scan function
 
@@ -143,7 +143,7 @@ class BaseRecurrentPop(Pop):
         """
         raise NotImplementedError
 
-    def get_non_seqs(self, *args):
+    def get_non_seqs(self, *args, **kwargs):
         """
         Returns the values to be passed in to "non_sequences" of the scan function
 
@@ -186,7 +186,7 @@ class GatedRecurrentPop(BaseRecurrentPop):
         self.nonlinearity = nonlinearity
 
 
-    def get_seqs(self, X):
+    def get_seqs(self, X, **kwargs):
         """
         returns computation that can be down outside of Theano's scan to speed up implementation
 
@@ -205,7 +205,7 @@ class GatedRecurrentPop(BaseRecurrentPop):
         Cx = T.dot(X, self.Wxh) + self.bh.dimshuffle('x',0)
         return [Zx, Rx, Cx]
 
-    def get_non_seqs(self, X):
+    def get_non_seqs(self, X, **kwargs):
         return None
 
 
