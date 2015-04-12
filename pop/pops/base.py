@@ -114,10 +114,12 @@ class Pop(object):
         TODO: is 'ignore' better or is 'include' better?
         TODO: should we deal with biases seperately, maybe?
         """
-        if len(include) > 0:
-            return utils.unique(sum([pop.get_params() for pop in include], []))
-        else:
-            return utils.unique(sum([pop.get_params() for pop in self.Pops if pop not in ignore], []))
+        # if include is 0-length, include it all
+        if len(include) == 0:
+            include = self.Pops
+
+        # now return the ones not in ignore
+        return utils.unique(sum([pop.get_params() for pop in include if pop not in ignore], []))
 
     def get_params(self):
         """
