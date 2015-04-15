@@ -36,6 +36,9 @@ class Pop(object):
         self.num_output=num_output
         self.name=name
         self.Pops = [self]
+        self.Pop_mapping = {}
+        if name is not None:
+            self.Pop_mapping[name] = self
 
     def get_output(self, *args, **kwargs):
         """
@@ -74,6 +77,20 @@ class Pop(object):
         # add all Pops together to keep track
         new_Pop.Pops += sum([pop.Pops for pop in pops], [])
         new_Pop.Pops += self.Pops
+
+        # fill the Pop mapping
+        new_Pop.Pop_mapping = self.Pop_mapping
+        for pop in pops:
+            for name in pop.Pop_mapping:
+                mapped = pop.Pop_mapping[name]
+                if name in new_Pop.Pop_mapping:
+                    # see if the mapped is the same
+                    if mapped == new_Pop.Pop_mapping[name]:
+                        continue
+                    else:
+                        raise ValueError("Same Pop name, different Pop. TODO: add support for this somehow")
+                else:
+                    new_Pop.Pop_mapping[name] = mapped
 
         # make new callable
         # todo: have length of args checks somewhere

@@ -1,6 +1,6 @@
 import theano
 
-from .base import Layer
+from .base import Layer, Pop
 
 # from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
@@ -11,7 +11,35 @@ __all__ = [
     "DropoutLayer",
     "dropout",
     "GaussianNoiseLayer",
+    "DropoutPop"
 ]
+class DropoutPop(Pop):
+    def __init__(self, p, **kwargs):
+        """
+        Here, p is dropout rate.
+        """
+        super(DropoutPop, self).__init__(1,1,**kwargs)
+        self.p = p
+
+    def symbolic_call(self, arg, **kwargs):
+        if self.p == 0:
+            print "DROPOUT IS NOTHING"
+            return arg #this is just identity if p was 0.
+
+        test = kwargs.get('test', False)
+        if not test:
+            print "COMPILING DROPOUT TRAIN-TIME"
+            # scale arg; if we drop self.p of the arguments, everything should be divided by 1 - p, i.e usually the outputs are total, so we much find x s.t (1-p)inp/(x) = total, hence x=1-p.
+            arg /= (1 - self.p)
+            # make mask
+
+            mask = _srng.binomial(arg.shape, p=1 -self.p, dtype=theano.config.floatX)
+            return arg * mask
+        else:
+            print "COMPILING DROPOUT TEST-TIME"
+            # here, don't do anything.
+            return arg
+
 
 
 class DropoutLayer(Layer):

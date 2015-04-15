@@ -34,7 +34,7 @@ class BaseRecurrentPop(Pop):
     """
     def __init__(self, num_input, num_output, hidden_size,
                  h0=init.Constant(0.), backwards=False,
-                 learn_init=False, gradient_steps=-1, bidirectional=False, **kwargs):
+                 learn_init=False, gradient_steps=-1, bidirectional=False, flip_backwards=False, **kwargs):
         super(BaseRecurrentPop, self).__init__(num_input,num_output,**kwargs)
         self.num_output=num_output
         self.learn_init = learn_init
@@ -42,6 +42,7 @@ class BaseRecurrentPop(Pop):
         self.gradient_steps = gradient_steps
         self.bidirectional = bidirectional
         self.hidden_size=hidden_size
+        self.flip_backwards=flip_backwards
         # Initialize hidden state
         self.h0 = self.create_param(h0, (self.hidden_size,))
 
@@ -77,6 +78,7 @@ class BaseRecurrentPop(Pop):
         seqs = self.get_seqs(*args, **kwargs)
         non_seqs = self.get_non_seqs(*args, **kwargs)
         outputs_info = self.get_outputs_info(*args, **kwargs)
+        print outputs_info
 
         if self.bidirectional:
             outputs_forward=utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
@@ -107,7 +109,7 @@ class BaseRecurrentPop(Pop):
             # Now, dimshuffle back to (n_batch, n_time_steps, n_features))
             outputs = [output.dimshuffle(1,0,2) for output in outputs]
 
-            if self.backwards:
+            if self.flip_backwards:
                 outputs = [output[:, ::-1, :] for output in outputs]
 
         if self.num_output==1:
@@ -125,7 +127,10 @@ class BaseRecurrentPop(Pop):
         """
         X = args[0]
         h0alloc = T.alloc(self.h0, X.shape[0], self.hidden_size)
-        return [h0alloc] + self.get_extra_outputs_info(*args[1:])
+        print h0alloc.broadcastable
+        h0alloc = T.unbroadcast(h0alloc, 0)
+        print h0alloc.broadcastable
+        return [h0alloc] + self.get_extra_outputs_info(*args)
 
     def get_extra_outputs_info(self, *args, **kwargs):
         """
@@ -133,7 +138,7 @@ class BaseRecurrentPop(Pop):
 
         this is to overwrite.
         """
-        return [None for i in range(len(args))]
+        return []
 
     def get_seqs(self, *args, **kwargs):
         """

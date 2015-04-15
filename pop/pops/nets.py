@@ -6,6 +6,7 @@ from .. import nonlinearities
 from .. import utils
 
 from .base import Pop
+from .noise import DropoutPop
 
 
 __all__ = [
@@ -17,7 +18,7 @@ class FFNetPop(Pop):
 	"""
 	This is a Pop that makes an arbitrarily-sized neural net given the init statements. It only supports feedforward neural networks.
 	"""
-	def __init__(self, input_size, output_size, intermediary_sizes, initializations=(init.Uniform(), init.Constant(0.)), Wio=init.Uniform(), bo = init.Constant(0.), intermediary_nonlinearities=nonlinearities.rectify, output_nonlinearity=nonlinearities.identity, **kwargs):
+	def __init__(self, input_size, output_size, intermediary_sizes, initializations=(init.Uniform(), init.Constant(0.)), dropout=0., Wio=init.Uniform(), bo = init.Constant(0.), intermediary_nonlinearities=nonlinearities.rectify, output_nonlinearity=nonlinearities.identity, **kwargs):
 		"""
 		Initializes the Pop
 
@@ -52,6 +53,7 @@ class FFNetPop(Pop):
 
 		self.Wio = self.create_param(Wio, (last_size, output_size), name="Wio")
 		self.bo = self.create_param(bo, (output_size,), name="bo")
+		self.dropout = DropoutPop(p=dropout)
 
 		self.output_nonlinearity=output_nonlinearity
 
@@ -70,13 +72,13 @@ class FFNetPop(Pop):
 		"""
 		Symbolic call for this ff neural network
 		"""
-		curr = inp
+		curr = self.dropout.symbolic_call(inp,**kwargs)
 		for param,nonlinearity in zip(self.layer_params, self.intermediary_nonlinearities):
 			W,b = param
 			intermediate = T.dot(curr, W)
 			if b is not None:
 				intermediate = intermediate + b.dimshuffle('x',0)
-			curr = nonlinearity(intermediate)
+			curr = self.dropout.symbolic_call(nonlinearity(intermediate), **kwargs)
 
 		# now we're at the last intermediate size, so just need to go to output
 		output = T.dot(curr, self.Wio)
