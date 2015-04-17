@@ -37,6 +37,7 @@ class Pop(object):
         self.name=name
         self.Pops = [self]
         self.Pop_mapping = {}
+        self.updates= None
         if name is not None:
             self.Pop_mapping[name] = self
 
@@ -77,6 +78,7 @@ class Pop(object):
         # add all Pops together to keep track
         new_Pop.Pops += sum([pop.Pops for pop in pops], [])
         new_Pop.Pops += self.Pops
+        new_Pop.Pops = utils.unique(new_Pop.Pops)
 
         # fill the Pop mapping
         new_Pop.Pop_mapping = self.Pop_mapping
@@ -107,7 +109,22 @@ class Pop(object):
             final_out = self.symbolic_call(*outputs, **ckwargs)
             return final_out
 
+        # make new symbolic input callable
+        def new_get_symbolic_inputs(*args, **ckwargs):
+            symbolic_inputs = []
+            for pop in pops:
+                symbolic_inputs += pop.get_symbolic_inputs()
+            return symbolic_inputs
+
         new_Pop.symbolic_call = new_symbolic_call
+        new_Pop.get_symbolic_inputs = new_get_symbolic_inputs
+
+        # ===[ updates: experimental ] === #
+        new_upd= theano.OrderedUpdates()
+        for pop in pops:
+            new_upd.update(pop.updates)
+
+        new_Pop.updates = new_upd
 
         return new_Pop
 
@@ -241,6 +258,43 @@ class Pop(object):
         *args: the symbolic theano variable to use as input
         """
         raise NotImplementedError
+
+    def get_symbolic_inputs(self, *args, **kwargs):
+        """
+        Returns the type of theano variables this P-op expects. This is useful for chaining pops without having to re-instantiate all the expected inputs.
+
+        Parameters
+        ----------
+        Nothing.
+
+        Notes
+        -----
+        Should this store values in self.symbolic_inputs, for example?
+        """
+        return []
+
+    def print_symbolic_input(self, *args, **kwargs):
+        """
+        Prints the symbolic input that this P-op expects.
+
+        Parameters
+        ----------
+        Nothing.
+        """
+        symbolic_inputs = self.get_symbolic_input()
+        print "The symbolic inputs this P-op expects are:"
+        for inp in symbolic_inputs:
+            print "%s, of type %s" % (inp, inp.type)
+
+
+    def get_function_updates(self, *args, **kwargs):
+        """
+        Returns any updates that should be passed into theano.function(...) calls.
+
+        Should be overwritten
+        """
+        return None
+
 
     
 

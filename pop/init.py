@@ -25,6 +25,21 @@ class Normal(Initializer):
     def sample(self, shape):
         return floatX(np.random.normal(self.avg, self.std, size=shape))
 
+class Identity(Initializer):
+    def __init__(self, scale=1):
+        self.scale = scale
+
+    def sample(self, shape):
+        """
+        shape must be (n,n)
+        """
+        if len(shape) != 2:
+            raise ValueError("Can't initialize an identity matrix of size greater than 2. Got shape: %s" % shape)
+        if shape[0] != shape[1]:
+            raise ValueError("Dimensionality of the two dimensions must be the same. Got shape: %s" % shape)
+
+        return floatX(np.eye(shape[0]) * self.scale)
+
 
 class Constant(Initializer):
     def __init__(self, val=0.0):

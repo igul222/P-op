@@ -78,7 +78,7 @@ class BaseRecurrentPop(Pop):
         seqs = self.get_seqs(*args, **kwargs)
         non_seqs = self.get_non_seqs(*args, **kwargs)
         outputs_info = self.get_outputs_info(*args, **kwargs)
-        print outputs_info
+
 
         if self.bidirectional:
             outputs_forward=utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
@@ -101,11 +101,15 @@ class BaseRecurrentPop(Pop):
             outputs = [T.concatenate([forward,backward],axis=2) for forward,backward in zip(outputs_forward,outputs_backward)]
 
         else:
-            outputs = utils.make_list(theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
+            outputs, upd = theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
                                  go_backwards=self.backwards,
                                  outputs_info=outputs_info,
-                                 truncate_gradient=self.gradient_steps)[0])
+                                 truncate_gradient=self.gradient_steps)
 
+            outputs = utils.make_list(outputs)
+            self.updates =upd
+            print 'updates:'
+            print len(upd)
             # Now, dimshuffle back to (n_batch, n_time_steps, n_features))
             outputs = [output.dimshuffle(1,0,2) for output in outputs]
 
@@ -127,9 +131,9 @@ class BaseRecurrentPop(Pop):
         """
         X = args[0]
         h0alloc = T.alloc(self.h0, X.shape[0], self.hidden_size)
-        print h0alloc.broadcastable
+       
         h0alloc = T.unbroadcast(h0alloc, 0)
-        print h0alloc.broadcastable
+       
         return [h0alloc] + self.get_extra_outputs_info(*args)
 
     def get_extra_outputs_info(self, *args, **kwargs):
@@ -139,6 +143,9 @@ class BaseRecurrentPop(Pop):
         this is to overwrite.
         """
         return []
+
+    def get_function_updates(self, *args, **kwargs):
+        return self.updates
 
     def get_seqs(self, *args, **kwargs):
         """
@@ -251,4 +258,66 @@ class GatedRecurrentPop(BaseRecurrentPop):
             if bias is not None:
                 b.append(bias)
         return b
+
+class VanillaRecurrent(BaseRecurrentPop):
+    """
+    Implementation of a Vanilla Recurrent Layer
+    """
+
+    def __init__(self, input_size, hidden_size,  Wxh=init.Uniform(), Whh=init.Uniform(), bh=init.Constant(0.), nonlinearity=nonlinearities.tanh, h0=init.Constant(0.), backwards=False, learn_init=False, gradient_steps=-1, **kwargs):
+        super(GatedRecurrentPop,self).__init__(1,1,hidden_size, h0=h0, backwards=backwards, learn_init=learn_init, gradient_steps=gradient_steps, **kwargs)
+
+        self.Wxh=self.create_param(Wxh, (input_size, hidden_size), name="Wxh")
+        self.Whh=self.create_param(Whh, (hidden_size, hidden_size), name="Whh")
+        self.bh=(self.create_param(bh, (hidden_size,), name="bh") if bh is not None else None)
+
+        self.nonlinearity = nonlinearity
+
+
+    def get_seqs(self, X, **kwargs):
+        """
+        returns computation that can be down outside of Theano's scan to speed up implementation
+
+        Parameters
+        ----------
+        inputs: input is x
+
+        REMEMBER THAT WE GET EVERYTHING IN THE WRONG ORDER
+
+        TODO: why not b.dimshuffle('x','x',0)? ez checks w/ theano to see if this is automatically done.
+        """
+        X = X.dimshuffle(1, 0, 2)
+        prop = T.dot(X, self.Wxh) + self.bh.dimshuffle('x',0)
+        return [prop]
+
+    def get_non_seqs(self, X, **kwargs):
+        return None
+
+
+    def step_fn(self, *args, **kwargs):
+        """
+        implements the forward pass of **one timestep** of a GRU recurrent net. This does not implement anything more than one timestep because the BaseRecurrent architecture deals with the steps
+
+        Parameters
+        ----------
+        inputs: inputs[:-1] comes from get_prescan
+                inputs[-1] is batch x hidden size (H_tminus1)
+
+        Returns
+        -------
+        The final hidden state at this timestep
+        """
+        xprop = args[0]
+        htm1 = args[-1] #batch x hidden
+        return self.nonlinearity(T.dot(htm1, self.Whh) + xprop)
+    def get_params(self):
+        return [self.Wxh, self.Whh] + self.get_bias_params()
+
+    def get_bias_params(self):
+        b = []
+        for bias in [self.bh]:
+            if bias is not None:
+                b.append(bias)
+        return b
+
 
