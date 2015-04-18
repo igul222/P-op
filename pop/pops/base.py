@@ -107,6 +107,8 @@ class Pop(object):
                 curr_offset += pop.num_input
             # now outputs should have enough to call this pop's symbolic_call
             final_out = self.symbolic_call(*outputs, **ckwargs)
+            self.get_updates() # symbolic calls set internal update values, so this goes through and picks them up.
+
             return final_out
 
         # make new symbolic input callable
@@ -287,13 +289,16 @@ class Pop(object):
             print "%s, of type %s" % (inp, inp.type)
 
 
-    def get_function_updates(self, *args, **kwargs):
+    def get_updates(self, *args, **kwargs):
         """
         Returns any updates that should be passed into theano.function(...) calls.
 
         Should be overwritten
         """
-        return None
+        upds = theano.OrderedUpdates()
+        for pop in self.Pops:
+            upds.update(pop.updates)
+        self.updates = upds
 
 
     
