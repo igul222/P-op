@@ -61,7 +61,7 @@ class Pop(object):
         # check that the sizes match
         pop_outputs = [pop.num_output for pop in pops]
         if not sum(pop_outputs) == self.num_input:
-            raise ValueError("You tried to chain Pops with an incorrect number of inputs")
+            raise ValueError("You tried to chain Pops with an incorrect number of inputs. Expected: %s inputs. Got: %s" % (self.num_input, sum(pop_outputs)))
 
         # create new Pop
         # write name

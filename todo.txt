@@ -2,4 +2,5 @@
 * unknown argument Pops: can be done, some things work on variable args
 * do we really need it to be that object oriented? perhaps we can just have them as functions, not 'pop' objects. what's the downside here: we need an overall "pop" object to serialize,train,etc. but maybe we can have init take args too? or, have the class (eg "GatedRecurrentPop") and the call (eg "GatedRecurrent" or w/e), where the call is a wrapper to make a class and then call it on the arguments. I like the second way a lot.
 * reproducible tests suite
-**** DEFINITELY LOOK INTO THE *args[1:] thing that came up with the recurrent nets...
+*more helpful error messages
+*batch normalization

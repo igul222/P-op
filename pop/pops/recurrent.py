@@ -76,6 +76,10 @@ class BaseRecurrentPop(Pop):
         # but scan requires the iterable dimension to be first
         # So, we need to dimshuffle to (n_time_steps, n_batch, n_features)
         seqs = self.get_seqs(*args, **kwargs)
+        if len(seqs) == 0:
+            n_steps = self.get_n_steps(*args, **kwargs)
+        else:
+            n_steps = None
         non_seqs = self.get_non_seqs(*args, **kwargs)
         outputs_info = self.get_outputs_info(*args, **kwargs)
 
@@ -101,7 +105,7 @@ class BaseRecurrentPop(Pop):
             outputs = [T.concatenate([forward,backward],axis=2) for forward,backward in zip(outputs_forward,outputs_backward)]
 
         else:
-            outputs, upd = theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, non_sequences=non_seqs,
+            outputs, upd = theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, n_steps=n_steps, non_sequences=non_seqs,
                                  go_backwards=self.backwards,
                                  outputs_info=outputs_info,
                                  truncate_gradient=self.gradient_steps)
@@ -169,6 +173,11 @@ class BaseRecurrentPop(Pop):
         """
         raise NotImplementedError
 
+    def get_n_steps(self, *args, **kwargs):
+        """
+        returns number of steps to take. only called if get_seqs returns an empty list
+        """
+        raise NotImplementedError
 
 
 class GatedRecurrentPop(BaseRecurrentPop):

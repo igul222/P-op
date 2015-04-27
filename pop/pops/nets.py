@@ -11,7 +11,49 @@ from .noise import DropoutPop
 
 __all__ = [
     "FFNetPop",
+    "TensorPop"
 ]
+
+class TensorPop(Pop):
+	"""
+	This is a Pop that performs a tensor-product as in the Recursive Neural Tensor Network paper:
+
+	v_out = a * V * a,  + W*a + b, where V is output_size x input_size x input_size. The dimension d of v_out is 
+	the d'th slice of T (V[d]) as follows: a^T * (V[d]) * a
+	"""
+	def __init__(self, input_size, output_size, V=init.Uniform(), W=init.Uniform(), b=init.Uniform(), nonlinearity=nonlinearities.identity, **kwargs):
+		"""
+		Initializes the Pop
+
+		Parameters
+		----------
+		input_size: dimensionality of the vectors that are input to the tensor
+		output_size: desired dimensionalty of the output vector
+		V: initializations for the tensor V
+		b: initialization of the bias for the vector output
+		"""
+		super(TensorPop,self).__init__(1,1,**kwargs)
+		self.V = self.create_param(V, (output_size,input_size,input_size), name="V")
+		self.W = self.create_param(W, (input_size, output_size), name="W")
+		self.b = self.create_param(b, (output_size,), name="b")
+
+		self.nonlinearity = nonlinearity
+
+	def get_params(self):
+		return [self.V] + self.get_bias_params()
+
+	def get_bias_params(self):
+		return [self.b]
+
+	def symbolic_call(self, vec, **kwargs):
+		"""
+		Performs the computation vec * V * vec
+		"""
+		outer = T.outer(vec,vec)
+		tens_out = T.tensordot(self.V, outer, axes=[[1,2],[0,1]])
+		matr_out = T.dot(vec, self.W)
+		return self.nonlinearity(tens_out + matr_out + self.b.dimshuffle('x',0))
+
 
 
 class FFNetPop(Pop):
