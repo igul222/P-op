@@ -1,6 +1,7 @@
 import theano
 import theano.tensor as T
 import functools
+import numpy as np
 from .. import nonlinearities
 from .. import init
 from .. import utils
@@ -178,6 +179,154 @@ class BaseRecurrentPop(Pop):
         returns number of steps to take. only called if get_seqs returns an empty list
         """
         raise NotImplementedError
+
+
+
+
+class BaseSequenceGeneratorPop(Pop):
+    """
+    My own implementation of a base recurrent Pop (craffel's doesn't allow for easy GRU computation)
+
+    Parameters
+    ----------
+    incoming: input layer shape batch_size x time_steps x feature_size
+    hx_to_h: multiple input layer that takes hidden layer and input layer and outputs the next hidden layer
+            ( this is more general than craffel's implementation because it allows for GRU )
+    num_units: size of the hidden state
+    nonlinearity: TODO: do we need this? could all be done in hx_to_h
+    h0: the init function for the initial hidden state
+    backwards: whether or not to run this recurrent layer backwards
+    learn_init: whether or not to learn h0
+    gradient_steps: how far to allow the error to propagate through the sequence (TODO: what is this exactly?)
+
+    My strategy here is to have BaseRecurrentLayer expose two layers, one that outputs the hidden sequence, and one that outputs the input sequences.
+
+    """
+    def __init__(self, num_input, num_output, hidden_size,
+                 h0=init.Constant(0.), p0=init.Constant(0.), backwards=False,
+                 learn_h0=False, learn_p0=True, gradient_steps=-1, **kwargs):
+        super(BaseSequenceGeneratorPop, self).__init__(num_input,num_output,**kwargs)
+        self.num_output=num_output
+        self.learn_h0=learn_h0
+        self.learn_p0=learn_p0
+        self.backwards = backwards
+        self.gradient_steps = gradient_steps
+        self.hidden_size=hidden_size
+        # Initialize hidden state
+        self.h0 = self.create_param(h0, (self.hidden_size,))
+        self.p0 = self.create_param(p0, (self.hidden_size,))
+
+
+    def get_init_params(self):
+        '''
+        Get all initital parameters of this layer.
+        :returns:
+            - init_params : list of theano.shared
+                List of all initial parameters
+        '''
+        p = []
+        if self.learn_h0:
+            p.append(self.h0)
+
+        if self.learn_p0:
+            p.append(self.p0)
+
+        return p
+
+    def symbolic_call(self, *args, **kwargs):
+        '''
+        Compute this layer's output function given a symbolic input variable
+        :parameters:
+            - input : theano.TensorType
+                Symbolic input variable
+            - mask : theano.TensorType
+                Theano variable denoting whether each time step in each
+                sequence in the batch is part of the sequence or not.  If None,
+                then it assumed that all sequences are of the same length.  If
+                not all sequences are of the same length, then it must be
+                supplied as a matrix of shape (n_batch, n_time_steps) where
+                `mask[i, j] = 1` when `j <= (length of sequence i)` and
+                `mask[i, j] = 0` when `j > (length of sequence i)`.
+        :returns:
+            - layer_output : theano.TensorType
+                Symbolic output variable
+        '''
+        # but scan requires the iterable dimension to be first
+        # So, we need to dimshuffle to (n_time_steps, n_batch, n_features)
+        # dimshuffling in get_seqs if necessary.
+        seqs = self.get_seqs(*args, **kwargs)
+        if len(seqs) == 0:
+            n_steps = self.get_n_steps(*args, **kwargs)
+        else:
+            n_steps = None
+        non_seqs = self.get_non_seqs(*args, **kwargs)
+        outputs_info = self.get_outputs_info(*args, **kwargs)
+
+
+        outputs, upd = theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, n_steps=n_steps, non_sequences=non_seqs,
+                             go_backwards=self.backwards,
+                             outputs_info=outputs_info,
+                             truncate_gradient=self.gradient_steps)
+
+        outputs = utils.make_list(outputs)
+        self.updates =upd
+
+        if self.num_output==1:
+            return outputs[0]
+        else:
+            return outputs
+
+    def get_outputs_info(self, *args, **kwargs):
+        """
+        Returns values to be passed in to "outputs_info" of the scan function
+
+        This implements the 'vanilla RNN's outputs info, which is just h0. That's what it usually will be. Assumes X is the first arg.
+
+        Overwrite this.
+        """
+        # print T.unbroadcast(self.h0[np.newaxis,:],1).type
+        # print T.unbroadcast(self.h0[np.newaxis,:],1).broadcast
+        return [T.unbroadcast(self.h0[np.newaxis,:],0), T.unbroadcast(self.p0[np.newaxis,:],0)] + self.get_extra_outputs_info(*args, **kwargs)
+
+    def get_extra_outputs_info(self, *args, **kwargs):
+        """
+        args no longer includes X.
+
+        this is to overwrite.
+        """
+        return []
+
+    def get_function_updates(self, *args, **kwargs):
+        return self.updates
+
+    def get_seqs(self, *args, **kwargs):
+        """
+        Returns the values to be passed in to "sequences" of the scan function
+
+        TODO: probably base-case to input
+        """
+        raise NotImplementedError
+
+    def get_non_seqs(self, *args, **kwargs):
+        """
+        Returns the values to be passed in to "non_sequences" of the scan function
+
+        TODO: probably base-case to None
+        """
+        raise NotImplementedError
+
+    def step_fn(self, *args, **kwargs):
+        """
+        returns the step function. Note that we are here assuming that you will figure out the *args ordering.
+        """
+        raise NotImplementedError
+
+    def get_n_steps(self, *args, **kwargs):
+        """
+        returns number of steps to take. only called if get_seqs returns an empty list
+        """
+        raise NotImplementedError
+
 
 
 class GatedRecurrentPop(BaseRecurrentPop):

@@ -40,7 +40,7 @@ class TensorPop(Pop):
 		self.nonlinearity = nonlinearity
 
 	def get_params(self):
-		return [self.V, self.W] + self.get_bias_params()
+		return [self.W] + self.get_bias_params()#[self.V, self.W] + self.get_bias_params()
 
 	def get_bias_params(self):
 		return [self.b]
