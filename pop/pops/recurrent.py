@@ -45,7 +45,7 @@ class BaseRecurrentPop(Pop):
         self.hidden_size=hidden_size
         self.flip_backwards=flip_backwards
         # Initialize hidden state
-        self.h0 = self.create_param(h0, (self.hidden_size,))
+        self.h0 = self.create_param(h0, (self.hidden_size,), name="h0")
 
     def get_init_params(self):
         '''
@@ -104,6 +104,8 @@ class BaseRecurrentPop(Pop):
 
             # and concatenate
             outputs = [T.concatenate([forward,backward],axis=2) for forward,backward in zip(outputs_forward,outputs_backward)]
+            for i in xrange(len(outputs)):
+                outputs[i] = theano.printing.Print("BASERECURRENT OUTPUT "+str(i))(outputs[i])
 
         else:
             outputs, upd = theano.scan(functools.partial(self.step_fn, **kwargs), sequences=seqs, n_steps=n_steps, non_sequences=non_seqs,
